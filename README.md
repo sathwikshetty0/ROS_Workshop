@@ -214,6 +214,19 @@ ros2 run turtlesim turtle_teleop_key
 
 Press the arrow keys in the teleop terminal and watch the turtle move.
 
+### Where, When and Why (Experiment 1)
+
+| Step | Where | When | Why |
+| --- | --- | --- | --- |
+| 1. Locale | Any terminal | First, before any ROS install | ROS 2 needs a UTF-8 locale; otherwise some tools fail with encoding errors |
+| 2. Universe repo | Any terminal | Before adding the ROS repo | ROS packages depend on libraries stored in Ubuntu's Universe repository |
+| 3. ROS apt repo | Any terminal (sudo) | After Step 2 | Ubuntu does not ship ROS 2; this tells `apt` where to download it and verifies it with a key |
+| 4. Install | Any terminal (sudo) | After `apt update` | `ros-humble-desktop` gives the nodes, RViz2 and demos; `ros-dev-tools` gives colcon and rosdep used in all later experiments |
+| 5. Source | Every new terminal (or once in `~/.bashrc`) | Before every ROS command | Sourcing adds ROS commands and libraries to that terminal's paths; without it you get `ros2: command not found` |
+| 6. Talker/listener | Two separate terminals | After sourcing | Proves that nodes install, start and discover each other over DDS |
+| 7. Basic commands | A third terminal, while the talker runs | While nodes are running | Introspection commands only show something while nodes are alive |
+| 8. Turtlesim | Two terminals | Last | A visual check that a node can be driven by keyboard commands (topics at work) |
+
 ### Expected Output
 
 - `printenv | grep -i ROS` shows `ROS_DISTRO=humble` and `ROS_VERSION=2`.
@@ -343,6 +356,18 @@ ros2 run cpp_pkg hello_cpp_node
 ros2 run py_pkg hello_py_node
 ros2 pkg list | grep -E "cpp_pkg|py_pkg"
 ```
+
+### Where, When and Why (Experiment 2)
+
+| Step | Where | When | Why |
+| --- | --- | --- | --- |
+| 1. Workspace | Home folder: `~/ros2_ws/src` | Once per semester | colcon expects a fixed layout with all your packages under `src/` |
+| 2. C++ package | `~/ros2_ws/src` | Before writing C++ code | `ros2 pkg create` makes the folder, `package.xml` and `CMakeLists.txt` so you do not write them by hand |
+| 3. Edit C++ node | `cpp_pkg/src/hello_cpp_node.cpp` | After creating the package | Replaces the template message with your own so you can see your code ran |
+| 4. Python package | `~/ros2_ws/src` | Same as above | Python packages use `setup.py` instead of CMake, and register nodes as `console_scripts` |
+| 5. Edit Python node | `py_pkg/py_pkg/hello_py_node.py` | After creating the package | `rclpy.init`, a node class and `spin` are the skeleton of every Python node in this lab |
+| 6. rosdep and build | `~/ros2_ws` (workspace root, never inside `src`) | After any code or dependency change | `rosdep` installs missing dependencies; `colcon build` compiles C++ and installs both packages into `install/` |
+| 7. Source overlay and run | `~/ros2_ws`, in every new terminal | After every successful build | `install/setup.bash` makes `ros2 run` find your new packages |
 
 ### Expected Output
 
@@ -591,6 +616,19 @@ ros2 topic hz /topic
 ros2 topic pub --once /topic std_msgs/msg/String "{data: 'manual message'}"
 rqt_graph
 ```
+
+### Where, When and Why (Experiment 3)
+
+| Step | Where | When | Why |
+| --- | --- | --- | --- |
+| Create packages | `~/ros2_ws/src` | First | One package for Python and one for C++ so you can compare the two |
+| Publisher file | `py_pubsub/py_pubsub/publisher_node.py` | After creating the package | A timer calls a function every 0.5 s; each call publishes one message, which is how sensors publish at a fixed rate |
+| Subscriber file | `py_pubsub/py_pubsub/subscriber_node.py` | After the publisher | A callback runs automatically for every message that arrives |
+| `setup.py` entry points | `py_pubsub/setup.py` | Before building | Without the `console_scripts` lines `ros2 run py_pubsub talker` cannot find the program |
+| `CMakeLists.txt` lines | `cpp_pubsub/CMakeLists.txt`, before `ament_package()` | Before building | Tells CMake to compile each file and install the result where `ros2 run` looks |
+| Build | `~/ros2_ws` | After every edit of C++, `setup.py` or `package.xml` | Python edits show without rebuilding only when `--symlink-install` was used |
+| Run | Terminal 1 talker, Terminal 2 listener (both sourced) | After the build | Two terminals show two independent processes communicating |
+| Inspect | Third terminal | While both run | `echo`, `hz` and `rqt_graph` confirm the data, rate and connections without touching the code |
 
 ### Expected Output
 
@@ -966,6 +1004,20 @@ int64 sum
 
 In `CMakeLists.txt` add `find_package(rosidl_default_generators REQUIRED)` and `rosidl_generate_interfaces(${PROJECT_NAME} "srv/AddThree.srv")`; in `package.xml` add `<buildtool_depend>rosidl_default_generators</buildtool_depend>`, `<exec_depend>rosidl_default_runtime</exec_depend>` and `<member_of_group>rosidl_interface_packages</member_of_group>`.
 
+### Where, When and Why (Experiment 4)
+
+| Step | Where | When | Why |
+| --- | --- | --- | --- |
+| Install `example_interfaces` | Any terminal (sudo) | Before creating packages | Provides ready-made `AddTwoInts` and `Fibonacci` definitions, so no custom interface build is needed |
+| Service server | `py_srvcli/py_srvcli/service_member_function.py` | Start the server first | A server must be running before a client can call it |
+| Service client | `py_srvcli/py_srvcli/client_member_function.py` | After the server | Sends one request and waits for the reply; `wait_for_service` prevents calling a server that is not up |
+| C++ server/client | `cpp_srvcli/src/`, plus `CMakeLists.txt` | Same pattern | Shows that the Python and C++ nodes can talk to each other because both use the same interface |
+| `ros2 service call` | Any sourced terminal | While the server runs | Tests a server without writing a client, which is the first step in debugging |
+| Action server | `py_action/py_action/fibonacci_action_server.py` | Start before the client | Runs a long task, sends feedback each second, and returns the final result |
+| Action client | `py_action/py_action/fibonacci_action_client.py` | After the server | Sends a goal, shows feedback, and receives the result using callbacks so it never blocks |
+| `ros2 action send_goal --feedback` | Any sourced terminal | While the server runs | Lets you test an action and see feedback from the command line |
+| Use service or action? | Design decision | Before writing a new node | Use a service for short requests; use an action when the task takes seconds or minutes and may need progress or cancel |
+
 ### Expected Output
 
 ```text
@@ -1163,6 +1215,19 @@ ros2 service call /reset std_srvs/srv/Empty
 ros2 run turtle_control go_to_goal --ros-args -p goal_x:=3.0 -p goal_y:=9.0
 ```
 
+### Where, When and Why (Experiment 5)
+
+| Step | Where | When | Why |
+| --- | --- | --- | --- |
+| Start `turtlesim_node` | Terminal 1, kept open all experiment | Always first | It is the simulated robot; nothing else can be tested without it |
+| Teleop keys | Terminal 2 (click inside this terminal to type) | After the simulator | Shows manual control: key presses become `Twist` messages on `/turtle1/cmd_vel` |
+| `ros2 topic pub` | Terminal 3 | After the simulator | Sends the same `Twist` by hand, so you see that any program can drive the robot by publishing |
+| `ros2 topic echo /turtle1/pose` | Terminal 3 | While the turtle moves | The pose is the feedback signal used later by the controller |
+| `draw_circle.py` | `turtle_control/turtle_control/` | After manual tests | Open-loop control: constant speeds give a circle of radius v/ω |
+| `go_to_goal.py` | Same folder | After the circle | Closed-loop control: it reads the pose, computes the error and corrects it every 50 ms, so it reaches a goal even from a different start |
+| `/reset` service | Any terminal | Between runs | Puts the turtle back at its start so each test begins in the same state |
+| Parameters `-p goal_x:=3.0` | At `ros2 run` | Per test | Changes the goal without editing code |
+
 ### Expected Output
 
 - Part A: the turtle moves in a circle under the manual `topic pub`; `/turtle1/pose` prints `x`, `y`, `theta`, `linear_velocity` and `angular_velocity`.
@@ -1343,6 +1408,19 @@ ros2 param get /go_to_goal goal_x
 rqt_graph
 ros2 launch turtle_control goal_launch.py --show-args
 ```
+
+### Where, When and Why (Experiment 6)
+
+| Step | Where | When | Why |
+| --- | --- | --- | --- |
+| `ros2 param` commands | Any sourced terminal, with `turtlesim_node` running | First | Parameters exist only while their node runs; this shows how any node can be tuned live |
+| `dump` and `load` | Folder where you want the YAML saved | After tuning | Saves a good set of values so you can reuse it instead of retyping |
+| Parameter callback | Inside `go_to_goal.py`, in `__init__` | When you want to check values | Rejects invalid values (for example a negative gain) before they reach the controller |
+| YAML file | `turtle_control/config/goal_params.yaml` | Before the launch file | Keeps all settings in one file; the first key must match the node name or the values are ignored |
+| `mimic_launch.py` | `turtle_control/launch/` | After the YAML | One command starts three nodes; namespaces stop the two simulators from clashing on topic names, and remaps connect turtle 1's pose to turtle 2's command |
+| `goal_launch.py` | `turtle_control/launch/` | After the mimic launch | Shows launch arguments (`goal_x:=9.0`) overriding a value from the YAML |
+| `data_files` in `setup.py` | `turtle_control/setup.py` | Before building | Python packages install only what is listed; without this `ros2 launch` cannot find your launch and config files |
+| Rebuild and source | `~/ros2_ws` | After every change to launch, config or setup files | Launch and config files are copied into `install/` at build time |
 
 ### Expected Output
 
@@ -1605,6 +1683,20 @@ ros2 topic echo /joint_states --once
 ros2 run tf2_tools view_frames
 ros2 param get /robot_state_publisher robot_description | head
 ```
+
+### Where, When and Why (Experiment 7)
+
+| Step | Where | When | Why |
+| --- | --- | --- | --- |
+| Install tools | Any terminal (sudo) | First | `xacro` expands macros, `check_urdf` validates, and the GUI joint publisher lets you move joints with sliders |
+| Create `urdf`, `launch`, `rviz` folders | `~/ros2_ws/src/diff_bot_description/` | Before writing files | `rviz` must exist before building because `CMakeLists.txt` installs it |
+| Xacro file | `urdf/diff_bot.urdf.xacro` | After the folders | Properties give one place to change a size; the wheel macro avoids writing the same code twice |
+| `xacro`, `check_urdf` | Terminal in the `urdf` folder | Before every launch | Catches typos and broken links early, when the error message is easy to read |
+| Launch file | `launch/display.launch.py` | After the model is valid | Starts `robot_state_publisher` (builds TF from the URDF), the joint slider GUI, and RViz2 together |
+| `CMakeLists.txt` and `package.xml` | Package root | Before building | A model package has no code, so it only needs to install its folders and list its run dependencies |
+| Build and launch | `~/ros2_ws` | After editing any file | The launch file reads the installed copy of the Xacro |
+| RViz2 Fixed Frame | RViz2 left panel | After RViz2 opens | The Fixed Frame is the reference everything is drawn against; it must be a frame that exists, here `base_footprint` |
+| RobotModel and TF displays | RViz2 Add button | After setting the Fixed Frame | RobotModel draws the shape; TF draws the axes of each link so you can check positions |
 
 ### Expected Output
 
@@ -1893,6 +1985,21 @@ rviz2        # Fixed Frame = world, Add > TF
 | Model flies away or flickers in RViz | Two nodes publish the same child frame | Make sure each frame has one publisher |
 | Wrong orientation | Quaternion not normalised, or wrong parent | Normalise; check axes with the TF display |
 | Frame missing in RViz | Fixed Frame not set, or `use_sim_time` mismatch | Set Fixed Frame; check time source |
+
+### Where, When and Why (Experiment 8)
+
+| Step | Where | When | Why |
+| --- | --- | --- | --- |
+| Part A: inspect robot frames | Terminals next to the running Experiment 7 launch | While `display.launch.py` runs | TF data exists only while a publisher is running; this shows a real tree before you write any code |
+| `view_frames` | A folder you can find again (it saves a PDF there) | After the system is running | Gives a picture of the tree; use it first whenever TF behaves strangely |
+| `tf2_echo` | Any sourced terminal | While frames are published | Prints the exact transform between two frames, to check numbers against expectation |
+| Static transform (CLI) | Any sourced terminal | When a part is fixed to the robot | A camera mounted on the body never moves, so it is published once on `/tf_static` |
+| `tf_lab` package | `~/ros2_ws/src/tf_lab` | Before the code files | Keeps all TF code in one place |
+| Broadcaster | `tf_lab/tf_lab/turtle_tf2_broadcaster.py` | One instance per turtle | Converts each turtle's pose into a frame, so TF knows where every turtle is |
+| Listener | `tf_lab/tf_lab/turtle_tf2_listener.py` | After the broadcasters | Asks TF where turtle 1 is as seen from turtle 2, which is what a follower needs |
+| Launch file with timers | `tf_lab/launch/` | When nodes depend on each other | `TimerAction` waits for the simulator before spawning turtle 2 and starting the follower |
+| RViz2 with Fixed Frame `world` | RViz2 | During the run | You see the two frames move together as the turtles move |
+| Debugging table | Use when stuck | When a lookup fails | Most TF errors are a missing frame, two parents for one frame, or a timing problem |
 
 ### Expected Output
 
@@ -2316,6 +2423,23 @@ ros2 bag play sensor_bag
 
 In RViz2 set the LaserScan topic reliability to **Best Effort**; if the scan does not show, this is the usual reason.
 
+### Where, When and Why (Experiment 9)
+
+| Step | Where | When | Why |
+| --- | --- | --- | --- |
+| Install Gazebo packages | Any terminal (sudo) | First | `gazebo_ros_pkgs` connects the simulator to ROS 2 topics |
+| `worlds` folder and `CMakeLists.txt` line | `diff_bot_description/` | Before building | New folders are only installed if listed; otherwise the launch file cannot find the world |
+| `diff_bot_sim.urdf.xacro` | `diff_bot_description/urdf/` | After Experiment 7 works | Reuses the Experiment 7 model and adds only what the simulator needs: sensors, friction, colours and plugins |
+| Diff-drive plugin | Inside the sim Xacro | With the model | Turns `/cmd_vel` into wheel motion and publishes `/odom`; without it the robot cannot be driven |
+| Sensor blocks (LiDAR, camera, IMU) | Inside the sim Xacro | With the model | Each block creates a simulated sensor and publishes its data to a ROS 2 topic, replacing real hardware |
+| `lab_world.world` | `diff_bot_description/worlds/` | Before launch | Gives the LiDAR obstacles to detect |
+| `gazebo.launch.py` | `diff_bot_description/launch/` | After the model and world exist | Starts Gazebo, publishes the robot description, and spawns the robot into the world |
+| Build, source, launch | `~/ros2_ws` | After every file change | Gazebo reads the installed copy of the files |
+| Teleop keyboard | Second terminal (click inside to type) | After the robot appears | Moves the robot so sensor values change |
+| `sensor_lab` node | `~/ros2_ws/src/sensor_lab` | While Gazebo runs | Shows how a real program reads, cleans (`inf` and `nan`) and smooths raw sensor data |
+| `rqt_image_view`, RViz2 LaserScan | Separate terminals | While Gazebo runs | A visual check that each sensor works before using it for control in Experiment 10 |
+| `ros2 bag record` | A folder with free disk space | During a driving run | Saves the data so you can replay and analyze it later without running Gazebo |
+
 ### Expected Output
 
 - Gazebo opens with the robot, four obstacles and the lidar rays visible.
@@ -2647,6 +2771,22 @@ Fill the last column in your record after running each test.
 | 3. Full mission | Default four waypoints | Log shows 4 "Reached waypoint" lines, then "Mission complete" |  |
 | 4. Gain tuning | `kw` = 0.5, then 3.0 | Low value: slow, wide turns; high value: faster, may oscillate |  |
 | 5. Speed limit | `max_linear` = 0.15, then 0.5 | Compare mission time and how close the robot comes to obstacles |  |
+
+### Where, When and Why (Experiment 10)
+
+| Step | Where | When | Why |
+| --- | --- | --- | --- |
+| Check Experiments 7 and 9 first | `~/ros2_ws` | Before starting | This experiment launches the earlier packages; if Gazebo with sensors does not run alone, this will not run either |
+| Create `auto_nav` with `launch` and `config` | `~/ros2_ws/src` | First | Separate package for the final application, so the earlier ones stay unchanged |
+| `autonomous_navigator.py` | `auto_nav/auto_nav/` | After the package exists | Contains the decision logic: read pose and scan, choose a state, send velocity |
+| `nav_params.yaml` | `auto_nav/config/` | Before the launch file | Waypoints and gains live outside the code, so you can tune and retest without editing Python |
+| `auto_nav_launch.py` | `auto_nav/launch/` | After the node and YAML | One command starts the simulator, then waits 8 s for the robot to spawn before starting the navigator, so it does not read sensors that are not there yet |
+| `setup.py` and `package.xml` | `auto_nav/` | Before building | Registers the node, installs launch and config files, and lists the other packages it needs |
+| `colcon build` and source | `~/ros2_ws` | After every change | Python and YAML changes still need a rebuild for launch to see them (unless you used `--symlink-install`) |
+| `ros2 launch auto_nav auto_nav_launch.py` | Terminal 1 | When ready to run | Starts the whole system |
+| `ros2 topic echo /nav_status` | Terminal 2 | During the run | Shows the current state and waypoint number without reading logs |
+| RViz2 | Terminal 3 | During the run | See the scan, the robot and its path to judge avoidance behaviour |
+| `ros2 param set` and test cases | Terminal 2 | After the first successful run | Changing one value at a time shows its effect, which is how tuning is done on real robots |
 
 ### Expected Output
 
