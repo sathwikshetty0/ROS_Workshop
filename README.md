@@ -1,6 +1,5 @@
-# Robot Operating System Lab Manual (B24RA583)
-
-Oct 24, 2026 · @sathwik
+# Robot Operating System Lab Manual 
+@sathwikshetty0
 
 ## Course Overview
 
